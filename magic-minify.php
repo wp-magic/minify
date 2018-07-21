@@ -25,6 +25,8 @@ if ( ! defined( 'WPINC' ) ) {
 
 define( 'MAGIC_MINIFY_SLUG', 'magic_minify');
 
+define( 'MAGIC_MINIFY_CSS_FILE_NAME', 'magic.css' );
+
 add_action( 'wp_print_styles', function () {
 	global $wp_styles;
 
@@ -33,10 +35,9 @@ add_action( 'wp_print_styles', function () {
 
 	$handles = $wp_styles->to_do;
 
-
   $now = strtotime( 'now' );
   $upload_dir = wp_upload_dir();
-  $file_name = 'style.css';
+  $file_name = MAGIC_MINIFY_CSS_FILE_NAME;
 
   // write last compilation to database for quicker lookup
   $option_name = MAGIC_MINIFY_SLUG . '_last_compilation';
@@ -75,8 +76,7 @@ add_action( 'wp_print_styles', function () {
     wp_deregister_style( $handle );
   }
 
-
-  if ( $should_compile ) {
+  if ( true || $should_compile ) {
     $css_code = '';
 
   	foreach ( $files as $handle ) {
@@ -87,7 +87,20 @@ add_action( 'wp_print_styles', function () {
 
     magic_set_option( $option_name, $now );
 
-  	// write the merged styles to uploads/style.css
+    // "minify" the css output
+    // replace tab with spaces
+    $css_code = str_replace(  "\t",    "  ", $css_code );
+    // replace newlines with a single newline
+    $css_code = preg_replace( "#\R+#", "\n", $css_code );
+    // merge classes of one css declaration into one line
+    $css_code = str_replace(  ",\n",   ",", $css_code );
+    // remove spaces around various special chars, but NOT }
+    $css_code = preg_replace("/\s*([,;:+={])\s*/", "$1", $css_code);
+    // remove newlines before } but not after it.
+    // this keeps every declaration on one line
+    $css_code = str_replace(  "\n}",   "}", $css_code );
+
+  	// write the merged styles to uploads/$file_name
     $merged_file_location = $upload_dir['basedir'] . DIRECTORY_SEPARATOR . $file_name;
   	file_put_contents ( $merged_file_location , $css_code );
   }
