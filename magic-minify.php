@@ -28,12 +28,12 @@ define( 'MAGIC_MINIFY_SLUG', 'magic_minify');
 define( 'MAGIC_MINIFY_CSS_FILE_NAME', 'magic.css' );
 
 add_action( 'wp_print_styles', function () {
-	global $wp_styles;
+  global $wp_styles;
 
-	// arrange the queue based dependencies
-	$wp_styles->all_deps( $wp_styles->queue );
+  // arrange the queue based dependencies
+  $wp_styles->all_deps( $wp_styles->queue );
 
-	$handles = $wp_styles->to_do;
+  $handles = $wp_styles->to_do;
 
   $now = strtotime( 'now' );
   $upload_dir = wp_upload_dir();
@@ -79,11 +79,11 @@ add_action( 'wp_print_styles', function () {
   if ( true || $should_compile ) {
     $css_code = '';
 
-  	foreach ( $files as $handle ) {
+    foreach ( $files as $handle ) {
       if ( file_exists( $handle ) ) {
-  			$css_code .=  file_get_contents( $handle );
-  		}
-  	}
+        $css_code .=  file_get_contents( $handle );
+      }
+    }
 
     magic_set_option( $option_name, $now );
 
@@ -100,12 +100,12 @@ add_action( 'wp_print_styles', function () {
     // this keeps every declaration on one line
     $css_code = str_replace(  "\n}",   "}", $css_code );
 
-  	// write the merged styles to uploads/$file_name
+    // write the merged styles to uploads/$file_name
     $merged_file_location = $upload_dir['basedir'] . DIRECTORY_SEPARATOR . $file_name;
-  	file_put_contents ( $merged_file_location , $css_code );
+    file_put_contents ( $merged_file_location , $css_code );
   }
 
-	wp_enqueue_style(
+  wp_enqueue_style(
     'magic_style',
     $upload_dir['baseurl'] . '/' . $file_name,
     null,
