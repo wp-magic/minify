@@ -6,106 +6,122 @@
  * @license   GPL-2.0+
  */
 
+/**
+ * Load admin dashboard if needed
+ */
 if ( is_admin() ) {
-  require_once 'admin/dashboard.php';
+	require_once 'admin/dashboard.php';
 }
 
-add_action( 'wp_print_styles', function () {
-  $admin_off = magic_get_option( MAGIC_MINIFY_SLUG . '_admin_off', false);
-  $minify_css = magic_get_option( MAGIC_MINIFY_SLUG . '_css', false);
+/**
+ * Minify stylesheets
+ */
+add_action(
+	'wp_print_styles',
+	function () {
+		$admin_off  = magic_get_option( MAGIC_MINIFY_SLUG . '_admin_off', false );
+		$minify_css = magic_get_option( MAGIC_MINIFY_SLUG . '_css', false );
 
-  if (is_admin() && $admin_off) {
-    return;
-  }
+		if ( current_user_can( 'activate_plugins' ) && $admin_off ) {
+			return;
+		}
 
-  if ($minify_css) {
-    global $wp_styles;
+		if ( ! $minify_css ) {
+			return;
+		}
 
-    // arrange the queue based dependencies
-    $wp_styles->all_deps( $wp_styles->queue );
+		global $wp_styles;
 
-    $handles = $wp_styles->to_do;
+		// Arrange the queue based dependencies.
+		$wp_styles->all_deps( $wp_styles->queue );
 
-    $now = strtotime( 'now' );
-    $upload_dir = wp_upload_dir();
-    $file_name = MAGIC_MINIFY_CSS_FILE_NAME;
+		$handles = $wp_styles->to_do;
 
-    // write last compilation to database for quicker lookup
-    $option_name = MAGIC_MINIFY_SLUG . '_last_compilation';
-    $last_compilation = magic_get_option( $option_name, 0 );
+		$now        = strtotime( 'now' );
+		$upload_dir = wp_upload_dir();
+		$file_name  = MAGIC_MINIFY_CSS_FILE_NAME;
 
-    $should_compile = false;
+		// Write last compilation to database for quicker lookup.
+		$option_name      = MAGIC_MINIFY_SLUG . '_last_compilation';
+		$last_compilation = magic_get_option( $option_name, 0 );
 
-    foreach ( $handles as $handle ) {
-      /*
-        Clean up the url
-        style.min.css?v=4.6
-        to
-        style.min.css
-      */
-      $src = strtok( $wp_styles->registered[$handle]->src, '?' );
+		$should_compile = false;
 
-      if ( strpos( $src, 'http' ) !== false ) {
-        $site_url = site_url();
+		foreach ( $handles as $handle ) {
+			/*
+			Clean up the url
+			style.min.css?v=4.6
+			to
+			style.min.css
+			*/
+			$src = strtok( $wp_styles->registered[ $handle ]->src, '?' );
 
-        // If the css file is local, change full url into relative path
-        if ( strpos( $src, $site_url ) !== false ) {
-          $src = str_replace( $site_url, '', $src );
-        }
-      }
+			if ( strpos( $src, 'http' ) !== false ) {
+				$site_url = site_url();
 
-      // remove preceding slash for file_get_contents
-      $css_file_path = ltrim( $src, '/' );
+				// If the css file is local, change full url into relative path.
+				if ( strpos( $src, $site_url ) !== false ) {
+					$src = str_replace( $site_url, '', $src );
+				}
+			}
 
-      $last_changed = filemtime( $css_file_path );
-      if ( $last_changed > $last_compilation ) {
-        $should_compile = true;
-      }
+			// Remove preceding slash for file_get_contents.
+			$css_file_path = ltrim( $src, '/' );
 
-      $files[] = $css_file_path;
+			$last_changed = filemtime( $css_file_path );
+			if ( $last_changed > $last_compilation ) {
+				$should_compile = true;
+			}
 
-      wp_deregister_style( $handle );
-    }
+			$files[] = $css_file_path;
 
-    if ( true || $should_compile ) {
-      $css_code = '';
+			wp_deregister_style( $handle );
+		}
 
-      foreach ( $files as $handle ) {
-        if ( file_exists( $handle ) ) {
-          $css_code .=  file_get_contents( $handle );
-        }
-      }
+		if ( $should_compile ) {
+			$css_code = '';
 
-      magic_set_option( $option_name, $now );
+			foreach ( $files as $handle ) {
+				if ( file_exists( $handle ) ) {
+					$css_code .= wp_remote_get( $handle );
+				}
+			}
 
-      // "minify" the css output
-      // replace tab with spaces
-      $css_code = str_replace(  "\t",    "  ", $css_code );
-      // replace newlines with a single newline
-      $css_code = preg_replace( "#\R+#", "\n", $css_code );
-      // merge classes of one css declaration into one line
-      $css_code = str_replace(  ",\n",   ",", $css_code );
-      // remove spaces around various special chars, but NOT }
-      $css_code = preg_replace("/\s*([,;:+={])\s*/", "$1", $css_code);
-      // remove newlines before } but not after it.
-      // this keeps every declaration on one line
-      $css_code = str_replace(  "\n}",   "}", $css_code );
+			magic_set_option( $option_name, $now );
 
-      // write the merged styles to uploads/$file_name
-      $merged_file_location = $upload_dir['basedir'] . DIRECTORY_SEPARATOR . $file_name;
-      file_put_contents ( $merged_file_location , $css_code );
-    }
+			// "minify" the css output
+			// replace tab with spaces
+			$css_code = str_replace( "\t", '  ', $css_code );
+			// replace newlines with a single newline.
+			$css_code = preg_replace( '#\R+#', "\n", $css_code );
+			// merge classes of one css declaration into one line.
+			$css_code = str_replace( ",\n", ',', $css_code );
+			// remove spaces around various special chars, but NOT }.
+			$css_code = preg_replace( '/\s*([,;:+={])\s*/', '$1', $css_code );
+			// remove newlines before } but not after it.
+			// this keeps every declaration on one line.
+			$css_code = str_replace( "\n}", '}', $css_code );
 
-    wp_enqueue_style(
-      'magic_style',
-      $upload_dir['baseurl'] . '/' . $file_name,
-      null,
-      $last_compilation
-    );
-  }
-} );
+			// write the merged styles to uploads/$file_name.
+			$merged_file_location = $upload_dir['basedir'] . DIRECTORY_SEPARATOR . $file_name;
 
-add_action('init', function () {
-  $domain = MAGIC_MINIFY_SLUG;
-  load_plugin_textdomain( $domain, FALSE, plugin_dir_path( __FILE__ ) . 'languages' );
-} );
+			// Use file_put_contents because we are in no situation where we can ask the user for confirmation.
+			file_put_contents( $merged_file_location, $css_code );
+		}
+
+		wp_enqueue_style(
+			'magic_style',
+			$upload_dir['baseurl'] . '/' . $file_name,
+			null,
+			$last_compilation
+		);
+	}
+);
+
+add_action(
+	'init',
+	function () {
+		$domain = MAGIC_MINIFY_SLUG;
+		load_plugin_textdomain( $domain, false, plugin_dir_path( __FILE__ ) . 'languages' );
+	}
+);
