@@ -4,10 +4,14 @@
  *
  * @package   Magic_Gdpr
  * @license   GPL-2.0+
+ *
+ * @since 0.0.1
  */
 
 /**
  * Load admin dashboard if needed
+ *
+ * @since 0.0.1
  */
 if ( is_admin() ) {
 	require_once 'admin/dashboard.php';
@@ -15,6 +19,8 @@ if ( is_admin() ) {
 
 /**
  * Minify stylesheets
+ *
+ * @since 0.0.1
  */
 add_action(
 	'wp_print_styles',
@@ -39,7 +45,6 @@ add_action(
 
 		$now        = strtotime( 'now' );
 		$upload_dir = wp_upload_dir();
-		$file_name  = MAGIC_MINIFY_CSS_FILE_NAME;
 
 		// Write last compilation to database for quicker lookup.
 		$option_name      = MAGIC_MINIFY_SLUG . '_last_compilation';
@@ -83,7 +88,9 @@ add_action(
 
 			foreach ( $files as $handle ) {
 				if ( file_exists( $handle ) ) {
-					$css_code .= wp_remote_get( $handle );
+					$css_code_add = file_get_contents( $handle );
+
+					$css_code .= $css_code_add;
 				}
 			}
 
@@ -103,7 +110,7 @@ add_action(
 			$css_code = str_replace( "\n}", '}', $css_code );
 
 			// write the merged styles to uploads/$file_name.
-			$merged_file_location = $upload_dir['basedir'] . DIRECTORY_SEPARATOR . $file_name;
+			$merged_file_location = $upload_dir['basedir'] . DIRECTORY_SEPARATOR . MAGIC_MINIFY_CSS_FILE_NAME;
 
 			// Use file_put_contents because we are in no situation where we can ask the user for confirmation.
 			file_put_contents( $merged_file_location, $css_code );
@@ -111,7 +118,7 @@ add_action(
 
 		wp_enqueue_style(
 			'magic_style',
-			$upload_dir['baseurl'] . '/' . $file_name,
+			$upload_dir['baseurl'] . '/' . MAGIC_MINIFY_CSS_FILE_NAME,
 			null,
 			$last_compilation
 		);
