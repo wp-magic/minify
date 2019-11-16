@@ -1,8 +1,8 @@
 <?php
 /**
- * Appointment Gdpr Compliance
+ * Minify css files
  *
- * @package   Magic_Gdpr
+ * @package   MagicMinify
  * @license   GPL-2.0+
  *
  * @since 0.0.1
